@@ -66,26 +66,51 @@ export default function ViewElection() {
   useEffect(() => {
     async function fetchTimes() {
       if (getElectionTimes) {
-        const times = await getElectionTimes();
-        setElectionWindow(times);
+        const bcTimes = await getElectionTimes();
+        
+        // If Blockchain times are set (non-zero), they take precedence (Immutable proof)
+        if (bcTimes.start > 0 || bcTimes.end > 0) {
+          setElectionWindow(bcTimes);
+        } else {
+          // If NOT set on blockchain, fallback to Database for "Scheduled" preview
+          try {
+            const res = await axios.get(serverLink + `election/${id}`);
+            const dbElection = res.data;
+            if (dbElection.startDate && dbElection.endDate) {
+              setElectionWindow({
+                start: Math.floor(new Date(dbElection.startDate).getTime() / 1000),
+                end: Math.floor(new Date(dbElection.endDate).getTime() / 1000),
+                isFallback: true
+              });
+            }
+          } catch (e) {
+            console.error("Failed to fetch database fallback times", e);
+          }
+        }
       }
     }
     fetchTimes();
-  }, [getElectionTimes]);
+  }, [getElectionTimes, id]);
 
   useEffect(() => {
     const checkWindow = () => {
-      if (electionWindow.start === 0 && electionWindow.end === 0) return;
+      if (electionWindow.start === 0 && electionWindow.end === 0) {
+        setIsElectionActive(true); // Default to active if NO timers set anywhere
+        setWindowMessage("");
+        return;
+      }
       const now = Math.floor(Date.now() / 1000);
+      const prefix = electionWindow.isFallback ? "⏰ (Scheduled) " : "";
+      
       if (now < electionWindow.start) {
         setIsElectionActive(false);
-        setWindowMessage(`Election starts at: ${new Date(electionWindow.start * 1000).toLocaleString()}`);
+        setWindowMessage(`${prefix}Election starts at: ${new Date(electionWindow.start * 1000).toLocaleString()}`);
       } else if (now > electionWindow.end) {
         setIsElectionActive(false);
-        setWindowMessage(`Election ended at: ${new Date(electionWindow.end * 1000).toLocaleString()}`);
+        setWindowMessage(`${prefix}Election ended at: ${new Date(electionWindow.end * 1000).toLocaleString()}`);
       } else {
         setIsElectionActive(true);
-        setWindowMessage(`Election ends at: ${new Date(electionWindow.end * 1000).toLocaleString()}`);
+        setWindowMessage(`${prefix}Election ends at: ${new Date(electionWindow.end * 1000).toLocaleString()}`);
       }
     };
     checkWindow();

@@ -39,8 +39,10 @@ const EditPhase = () => {
     e.preventDefault();
     const name = e.target.name.value;
     const currentPhase = e.target.currentPhase.value;
+    const startDate = e.target.startDate.value;
+    const endDate = e.target.endDate.value;
 
-    const newData = { name, currentPhase };
+    const newData = { name, currentPhase, startDate, endDate };
 
     console.log(newData);
 
@@ -74,6 +76,7 @@ const EditPhase = () => {
                     />
                     <ErrorMessage />
                   </Grid>
+
                   <Grid item xs={12} sm={12}>
                     <InputTags
                       setCandidates={setCandidates}
@@ -81,6 +84,31 @@ const EditPhase = () => {
                       readOnly
                     />
                   </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="subtitle2" gutterBottom>Election Start Date & Time</Typography>
+                    <TextField
+                      fullWidth
+                      name="startDate"
+                      type="datetime-local"
+                      defaultValue={data.startDate ? new Date(data.startDate).toISOString().slice(0, 16) : ""}
+                      InputLabelProps={{ shrink: true }}
+                      helperText="When the voting phase officially becomes active."
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="subtitle2" gutterBottom>Election End Date & Time</Typography>
+                    <TextField
+                      fullWidth
+                      name="endDate"
+                      type="datetime-local"
+                      defaultValue={data.endDate ? new Date(data.endDate).toISOString().slice(0, 16) : ""}
+                      InputLabelProps={{ shrink: true }}
+                      helperText="When the system automatically stops accepting votes."
+                    />
+                  </Grid>
+
                   <Grid item xs={12} sm={12}>
                     <Autocomplete
                       id="combo-box-demo"
@@ -100,7 +128,7 @@ const EditPhase = () => {
                 </Grid>
                 <Box mt={3}>
                   <Button type="submit" variant="contained" color="primary">
-                    Update Phase
+                    Update Election Details
                   </Button>
                 </Box>
               </Box>

@@ -14,6 +14,14 @@ const ElectionSchema = new mongoose.Schema({
     type: String,
     default: "init", //init, registration, voting, result
   },
+  startDate: {
+    type: Date,
+    required: false,
+  },
+  endDate: {
+    type: Date,
+    required: false,
+  },
 });
 
 const Election = mongoose.model("Election", ElectionSchema);

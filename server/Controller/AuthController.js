@@ -305,8 +305,9 @@ export const phase = {
   controller: async (req, res) => {
     const data = await Election.findByIdAndUpdate(req.params.id, {
       currentPhase: req.body.currentPhase,
-    });
-    // console.log(data);
+      startDate: req.body.startDate,
+      endDate: req.body.endDate,
+    }, { new: true });
     return res.status(201).send(data);
   },
 };
