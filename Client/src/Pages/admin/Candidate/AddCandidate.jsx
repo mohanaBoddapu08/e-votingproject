@@ -15,6 +15,16 @@ export default function AddCandidate() {
     today.getFullYear() + "-" + (today.getMonth() + 1) + "-" + today.getDate();
   const navigate = useNavigate();
   const [join, setJoin] = useState(2000);
+  const [profileFile, setProfileFile] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfileFile(file);
+      setPreviewImage(URL.createObjectURL(file));
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -26,24 +36,35 @@ export default function AddCandidate() {
     console.log(join);
     const location = e.target.location.value;
     const description = e.target.description.value;
-    const data = {
-      username,
-      firstName,
-      lastName,
-      dob,
-      qualification,
-      join,
-      location,
-      description,
-    };
+    
+    // Create FormData for file upload
+    const formData = new FormData();
+    formData.append("username", username);
+    formData.append("firstName", firstName);
+    formData.append("lastName", lastName);
+    formData.append("dob", dob);
+    formData.append("qualification", qualification);
+    formData.append("join", join);
+    formData.append("location", location);
+    formData.append("description", description);
+    
+    if (profileFile) {
+      formData.append("profile", profileFile);
+    }
 
     axios
-      .post(serverLink + "candidate/register", data)
+      .post(serverLink + "candidate/register", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      })
       .then((res) => {
         console.log(res.status);
         if (res.status === 201) {
           navigate("/admin/candidate");
         }
+      })
+      .catch((err) => {
+        console.error("Error adding candidate:", err);
+        alert("Failed to add candidate. Please try again.");
       });
   };
 
@@ -65,6 +86,33 @@ export default function AddCandidate() {
                     fullWidth={true}
                   />
                   <ErrorMessage />
+                </Grid>
+                {/* CANDIDATE PROFILE IMAGE UPLOAD */}
+                <Grid item xs={12} sm={12} textAlign="center">
+                  <Typography variant="subtitle1" color="primary" gutterBottom>
+                    Candidate Profile Photo
+                  </Typography>
+                  <input
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    id="candidate-profile-upload"
+                    type="file"
+                    onChange={handleImageChange}
+                  />
+                  <label htmlFor="candidate-profile-upload">
+                    <Button variant="outlined" component="span" color="primary" style={{ marginBottom: "15px" }}>
+                      Upload Photo
+                    </Button>
+                  </label>
+                  {previewImage && (
+                    <Box mt={2}>
+                      <img 
+                        src={previewImage} 
+                        alt="Candidate Preview" 
+                        style={{ width: "150px", height: "150px", objectFit: "cover", borderRadius: "8px", border: "2px solid #ccc" }} 
+                      />
+                    </Box>
+                  )}
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <InputField

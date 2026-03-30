@@ -34,6 +34,24 @@ const ViewCandidate = () => {
 
   const columns = [
     { field: "_id", headerName: "ID", width: 220, hide: true },
+    {
+      field: "profileImage",
+      headerName: "Photo",
+      width: 80,
+      renderCell: (params) => {
+        return params.row.profileImage ? (
+          <img 
+            src={`${serverLink.replace('/api/auth/', '')}/Faces/${params.row.profileImage}`} 
+            alt="profile" 
+            style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }} 
+          />
+        ) : (
+          <div style={{ width: "40px", height: "40px", borderRadius: "50%", backgroundColor: "#ccc", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            N/A
+          </div>
+        );
+      },
+    },
     { field: "username", headerName: "Username", width: 150 },
     {
       field: "fname",

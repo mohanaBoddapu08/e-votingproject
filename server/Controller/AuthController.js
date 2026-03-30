@@ -272,17 +272,36 @@ export const candidates = {
     return res.status(201).send(data);
   },
   register: async (req, res) => {
-    const candidate = await Candidate.create({
-      username: req.body.username,
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      dob: req.body.dob,
-      qualification: req.body.qualification,
-      join: req.body.join,
-      location: req.body.location,
-      description: req.body.description,
+    upload(req, res, async function (err) {
+      if (err instanceof multer.MulterError) {
+        return res.status(500).json(err);
+      } else if (err) {
+        return res.status(500).json(err);
+      }
+      try {
+        let profileImage = "";
+        // We use the same 'profile' fieldname as the User registration
+        if (req.files && req.files.profile) {
+          profileImage = req.files.profile[0].filename;
+        }
+
+        const candidate = await Candidate.create({
+          username: req.body.username,
+          firstName: req.body.firstName,
+          lastName: req.body.lastName,
+          dob: req.body.dob,
+          qualification: req.body.qualification,
+          join: req.body.join,
+          location: req.body.location,
+          description: req.body.description,
+          profileImage: profileImage,
+        });
+        return res.status(201).send("Candidate Added");
+      } catch (e) {
+        console.error("Candidate Registration Error:", e);
+        return res.status(500).send("Registration Failed");
+      }
     });
-    return res.status(201).send("Candidate Added");
   },
   getCandidate: async (req, res) => {
     const data = await Candidate.findOne({ username: req.params.username });
