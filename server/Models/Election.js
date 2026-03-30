@@ -22,6 +22,14 @@ const ElectionSchema = new mongoose.Schema({
     type: Date,
     required: false,
   },
+  startHour: {
+    type: Number,
+    default: 9, // 9 AM default
+  },
+  endHour: {
+    type: Number,
+    default: 17, // 5 PM default
+  },
 });
 
 const Election = mongoose.model("Election", ElectionSchema);

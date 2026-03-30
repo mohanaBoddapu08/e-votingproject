@@ -73,10 +73,26 @@ export default function ViewElection() {
         const bcTimes = await getElectionTimes();
         
         // If Blockchain times are set (non-zero), they take precedence (Immutable proof)
+        let sHour = 9;
+        let eHour = 17;
+        let isFallback = false;
+        
+        // Fetch Admin-configured start/end hours from database
+        try {
+          const res = await axios.get(serverLink + `election/${id}`);
+          const dbElection = res.data;
+          sHour = dbElection.startHour || 9;
+          eHour = dbElection.endHour || 17;
+          if (dbElection.startDate && dbElection.endDate) {
+            isFallback = true;
+          }
+        } catch (e) {
+          console.error("Failed to fetch database fallback times", e);
+        }
+
         if (bcTimes.start > 0 || bcTimes.end > 0) {
-          setElectionWindow(bcTimes);
+          setElectionWindow({ ...bcTimes, startHour: sHour, endHour: eHour, isFallback });
         } else {
-          // If NOT set on blockchain, fallback to Database for "Scheduled" preview
           try {
             const res = await axios.get(serverLink + `election/${id}`);
             const dbElection = res.data;
@@ -84,6 +100,8 @@ export default function ViewElection() {
               setElectionWindow({
                 start: Math.floor(new Date(dbElection.startDate).getTime() / 1000),
                 end: Math.floor(new Date(dbElection.endDate).getTime() / 1000),
+                startHour: sHour,
+                endHour: eHour,
                 isFallback: true
               });
             }
@@ -98,13 +116,15 @@ export default function ViewElection() {
 
   useEffect(() => {
     const checkWindow = () => {
-      // 🕒 SYSTEM RULE: Voting only allowed between 9:00 AM and 5:00 PM
+      // 🕒 SYSTEM RULE: Voting only allowed within Admin-specified hours
       const currentHour = new Date().getHours();
-      const isWithinVotingHours = currentHour >= 9 && currentHour < 17;
+      const sHour = electionWindow.startHour !== undefined ? electionWindow.startHour : 9;
+      const eHour = electionWindow.endHour !== undefined ? electionWindow.endHour : 17;
+      const isWithinVotingHours = currentHour >= sHour && currentHour < eHour;
 
       if (!isWithinVotingHours) {
         setIsElectionActive(false);
-        setWindowMessage("Voting is strictly restricted to business hours: 9:00 AM - 5:00 PM.");
+        setWindowMessage(`Voting is strictly restricted to business hours: ${sHour}:00 - ${eHour}:00.`);
         return;
       }
 

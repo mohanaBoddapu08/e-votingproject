@@ -328,6 +328,8 @@ export const elections = {
       const newElection = await Election.create({
         name: req.body.name,
         candidates: req.body.candidates,
+        startHour: req.body.startHour || 9,
+        endHour: req.body.endHour || 17,
       });
       return res.status(201).send("Election Successfully Added");
     } catch (e) {
