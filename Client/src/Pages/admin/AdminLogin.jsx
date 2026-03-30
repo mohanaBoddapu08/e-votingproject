@@ -1,4 +1,4 @@
-import * as React from "react";
+import React, { useState } from "react";
 import Avatar from "@mui/material/Avatar";
 import Button from "@mui/material/Button";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -36,15 +36,38 @@ const theme = createTheme();
 
 export default function AdminLogin() {
   const navigate = useNavigate();
-  const handleSubmit = (event) => {
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const connectWallet = async () => {
+    if (!window.ethereum) {
+      alert("Please install MetaMask to verify identity!");
+      return null;
+    }
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    });
+    return accounts[0];
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     let password = data.get("password");
     let email = data.get("email");
+
     if (password === "admin123" && email === "admin@gmail.com") {
-      navigate("/admin/dashboard");
+      try {
+        const wallet = await connectWallet();
+        if (wallet && wallet.toLowerCase() === "0x8431547194fB085B87971A8C57C09C1CC1A75472".toLowerCase()) {
+          navigate("/admin/dashboard");
+        } else {
+          setErrorMsg("ACCESS DENIED: Unauthorized MetaMask Signature.");
+        }
+      } catch (err) {
+        setErrorMsg("ACCESS DENIED: MetaMask Verification Failed.");
+      }
     } else {
-      console.log("Failed");
+      setErrorMsg("INVALID CREDENTIALS: Password or email is incorrect.");
     }
   };
 
@@ -66,6 +89,23 @@ export default function AdminLogin() {
           <Typography component="h1" variant="h5">
             Sign in
           </Typography>
+          {errorMsg && (
+            <Typography
+              variant="h6"
+              sx={{
+                color: "red",
+                fontWeight: "bold",
+                textAlign: "center",
+                mt: 2,
+                border: "2px solid red",
+                padding: "10px",
+                borderRadius: "5px",
+                backgroundColor: "#ffeeee"
+              }}
+            >
+              {errorMsg}
+            </Typography>
+          )}
           <Box
             component="form"
             onSubmit={handleSubmit}

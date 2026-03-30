@@ -38,10 +38,6 @@ export default function Navbar() {
                   if (!isLoggedIn && (item.title === "Election" || item.title === "Result"))
                     return null;
 
-                  // ❌ Completely hide Admin link from the public website
-                  if (item.title === "Admin")
-                    return null;
-
                   // ❌ Hide Login/Register AFTER login
                   if (isLoggedIn && item.title === "Login/Register")
                     return null;
