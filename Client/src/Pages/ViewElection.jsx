@@ -21,10 +21,11 @@ const calculateEAR = (eye) => {
 };
 
 export default function ViewElection() {
-  const { sendTransaction, connectWallet, currentAccount, getElectionTimes } = useContext(TransactionContext);
   const { id } = useParams();
+  const { currentAccount, sendTransaction, getElectionTimes } = useContext(TransactionContext);
 
   const [candidates, setCandidates] = useState([]);
+  const [allCandidatesDetails, setAllCandidatesDetails] = useState([]);
   
   // Election Timer State
   const [electionWindow, setElectionWindow] = useState({ start: 0, end: 0 });
@@ -112,7 +113,12 @@ export default function ViewElection() {
       }
     }
     fetchTimes();
-  }, [getElectionTimes, id]);
+    
+    // Fetch detailed candidate profiles (to show photos)
+    axios.get(serverLink + "candidates").then(res => {
+      setAllCandidatesDetails(res.data || []);
+    }).catch(err => console.error(err));
+  }, [id, getElectionTimes]);
 
   useEffect(() => {
     const checkWindow = () => {
@@ -448,20 +454,51 @@ export default function ViewElection() {
         Select your Candidate:
       </Typography>
 
-      <Grid container spacing={3} style={{ marginTop: "10px" }}>
-        {candidates.map((cand, index) => (
-          <Grid item key={index}>
-            <Button
-              variant="contained"
-              size="large"
-              color={(!isElectionActive || hasAlreadyVoted) ? "secondary" : "primary"}
-              disabled={!isElectionActive || hasAlreadyVoted}
-              onClick={() => handleVoteClick(cand)}
-            >
-              {cand.toUpperCase()}
-            </Button>
-          </Grid>
-        ))}
+      <Grid container spacing={4} style={{ marginTop: "10px" }}>
+        {candidates.map((cand, index) => {
+          const detail = allCandidatesDetails.find(d => d.username === cand) || {};
+          return (
+            <Grid item key={index} xs={12} sm={4} display="flex" flexDirection="column" alignItems="center">
+              <Box 
+                mb={2} 
+                style={{ 
+                  width: 140, 
+                  height: 140, 
+                  borderRadius: "50%", 
+                  overflow: "hidden", 
+                  border: "5px solid #1976d2", 
+                  display: "flex", 
+                  justifyContent: "center", 
+                  alignItems: "center", 
+                  background: "#eee",
+                  boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+                }}
+              >
+                {detail.profileImage ? (
+                  <img 
+                    src={`${serverLink.replace('/api/auth/', '')}/Faces/${detail.profileImage}`} 
+                    alt={cand} 
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                  />
+                ) : (
+                  <Typography variant="h2" color="textSecondary" style={{ fontWeight: "bold" }}>
+                    {cand.charAt(0).toUpperCase()}
+                  </Typography>
+                )}
+              </Box>
+              <Button
+                variant="contained"
+                size="large"
+                color={(!isElectionActive || hasAlreadyVoted) ? "secondary" : "primary"}
+                disabled={!isElectionActive || hasAlreadyVoted}
+                onClick={() => handleVoteClick(cand)}
+                style={{ minWidth: "140px", fontWeight: "bold" }}
+              >
+                {cand.toUpperCase()}
+              </Button>
+            </Grid>
+          );
+        })}
       </Grid>
 
       {/* BIOMETRIC AUTHENTICATION MODAL */}

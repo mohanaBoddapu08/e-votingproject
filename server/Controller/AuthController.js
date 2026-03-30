@@ -61,18 +61,15 @@ export const register = {
         const newUser = await User.create(req.body);
 
         const mailSubject = "Welcome to E-Voting System";
-        const mailContent = `Thank you for registering. Your unique Voter Passcode is: ${passcode}\n\nPlease keep this passcode safe as it is required for voting along with your Voter ID and Facial Verification.`;
+        const mailContent = `Thank you for registering. You are now officially enrolled for the upcoming election.`;
 
-        // Attempt to send email, but don't block registration if it fails
+        // Send a welcome email but DO NOT send the passcode. Passcode is given at login.
         try {
           await sendMail(mailContent, mailSubject, newUser);
-          return res.status(201).send("Registration Successful! Passcode sent to email.");
+          return res.status(201).send("Registration Successful! (You will receive your Session Passcode when you login)");
         } catch (mailError) {
           console.error("Mail Sending Failed during registration:", mailError);
-          console.log(`\n-----------------------------------------`);
-          console.log(`[TRIAL MODE] Voter Passcode for ${newUser.username}: ${passcode}`);
-          console.log(`-----------------------------------------\n`);
-          return res.status(201).send("Registration Successful! (Note: Email notification failed, but you can view your passcode in the server console)");
+          return res.status(201).send("Registration Successful! (You will receive your Session Passcode when you login)");
         }
 
       } catch (e) {
