@@ -38,28 +38,13 @@ export default function Navbar() {
                   if (!isLoggedIn && (item.title === "Election" || item.title === "Result"))
                     return null;
 
-                  // ❌ Hide Admin AFTER login
-                  if (isLoggedIn && item.title === "Admin")
+                  // ❌ Completely hide Admin link from the public website
+                  if (item.title === "Admin")
                     return null;
 
                   // ❌ Hide Login/Register AFTER login
                   if (isLoggedIn && item.title === "Login/Register")
                     return null;
-
-                  // ✅ ADMIN → open in new tab (only before login)
-                  if (item.title === "Admin") {
-                    return (
-                      <a
-                        key={index}
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ textDecoration: "none", color: "white", fontSize: 20 }}
-                      >
-                        {item.title}
-                      </a>
-                    );
-                  }
 
                   // ✅ Normal links
                   return (
