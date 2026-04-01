@@ -1,6 +1,14 @@
-export const serverLink = process.env.REACT_APP_SERVER_URL || "https://e-votingproject-0gj2.onrender.com/api/auth/";
-export const clientLink = process.env.REACT_APP_CLIENT_URL || "http://localhost:3000/";
-export const facesLink = (process.env.REACT_APP_SERVER_URL || "https://e-votingproject-0gj2.onrender.com/api/auth/").replace("/api/auth/", "") + "/Faces/";
-export const phases = ["init", "voting", "result"];
-export const isFaceRecognitionEnable = true;
-export const isRegistrationOpen = true; // Enforces Registration Window
+// Server Endpoint (Change if using different Render URL)
+export const serverLink = "https://e-voting-backend.onrender.com/api/v1/";
+
+// Registration Fields Configuration
+export const signupOptions = [
+  { label: "Full Name", name: "fname", type: "text", required: true },
+  { label: "Voter ID", name: "voterId", type: "text", required: true },
+  { label: "Email Address", name: "email", type: "email", required: true },
+  { label: "Mobile Number", name: "mobile", type: "tel", required: true },
+  { label: "Password", name: "password", type: "password", required: true },
+];
+
+// Admin Authorized Wallet (Sepolia Testnet)
+export const adminAddress = "0x76B519871799d0db01039f3Ccf190cb1C6848889";
