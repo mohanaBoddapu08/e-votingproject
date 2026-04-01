@@ -7,6 +7,6 @@ export const contractAddress = "0x86848151b8CB6A8Be7D43d907A86Ef2D2B536323"; // 
 
 // If you can't find the `contractAddress` in the compiled `Transaction.json` file,
 // you can manually locate the address by finding the appropriate piece of code in the file.
-// The address should be located under the `"networks"` object, which lists the deployed addresses for different networks.
+// The address should bishae located under the `"networks"` object, which lists the deployed addresses for different networks.
 // For example, if you are using the default Ganache network, the `"networks"` object will contain an entry for network ID `5777`.
 // Find the `"address"` field under this entry, and copy the address value into the `contractAddress` variable.

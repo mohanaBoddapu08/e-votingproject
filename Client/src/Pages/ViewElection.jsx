@@ -264,8 +264,8 @@ export default function ViewElection() {
       alert(`✅ Identity Verified!\nMatch confidence: ${confidence}%\n\nProceeding with Blockchain Transaction.`);
       setIsAuthenticating(false);
       
-      const candidateName = targetCandidate.name || targetCandidate;
-      const candidateId = targetCandidate.id || targetCandidate;
+      const candidateName = targetCandidate ? (targetCandidate.name || targetCandidate) : "";
+      const candidateId = targetCandidate ? (targetCandidate.id || targetCandidate) : "";
       
       const result = await sendTransaction(id, candidateId, profile._id);
       
