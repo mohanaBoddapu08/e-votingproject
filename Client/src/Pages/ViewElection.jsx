@@ -264,11 +264,7 @@ export default function ViewElection() {
       alert(`✅ Identity Verified!\nMatch confidence: ${confidence}%\n\nProceeding with Blockchain Transaction.`);
       setIsAuthenticating(false);
       
-      const user_id = currentAccount;
-      const candidateName = targetCandidate.name || targetCandidate;
-      const candidateId = targetCandidate.id || targetCandidate;
-      
-      const result = await sendTransaction(id, candidateId, user_id);
+      const result = await sendTransaction(id, candidateId, profile._id);
       
       if (result.success) {
         // Record voter participation (not who they voted for — ballot secrecy preserved)

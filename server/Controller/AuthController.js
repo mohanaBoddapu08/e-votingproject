@@ -7,6 +7,8 @@ import Election from "../Models/Election.js";
 import Candidate from "../Models/Candidate.js";
 import nodemailer from "nodemailer";
 import twilio from "twilio";
+import { ethers } from "ethers";
+import abi from "../utils/Transaction.json" assert { type: "json" };
 
 // http://localhost:5000/api/auth/register
 //
@@ -458,74 +460,95 @@ export const votingMail = {
   },
 };
 
-// --- OTP TRIAL LOGIC ---
-const tempOtpStore = new Map();
-
 export const otpTrial = {
   send: async (req, res) => {
-    const { identifier, type } = req.body;
-    if (!identifier) return res.status(400).send("Identifier is required");
+    const { identifier } = req.body;
+    if (!identifier) return res.status(400).send("Email is required");
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    tempOtpStore.set(identifier, { code, expires: Date.now() + 5 * 60 * 1000 });
+    tempOtpStore.set(identifier, { code, expires: Date.now() + 10 * 60 * 1000 }); // 10 minutes
 
-    console.log(`\n-----------------------------------------`);
-    console.log(`[TRIAL MODE] OTP for ${type} (${identifier}): ${code}`);
-    console.log(`-----------------------------------------\n`);
-
-    if (type === "email") {
-      try {
-        await sendMail(`Your Verification Code is: ${code}`, "E-Voting Verification Code", { email: identifier });
-        return res.status(200).send("OTP sent to your email! (Also check server console)");
-      } catch (err) {
-        return res.status(200).send("Trial Mode: Email failed, but you can get the code from the server terminal console!");
-      }
-    } else {
-      try {
-        await sendSMS(`Your E-Voting Verification Code is: ${code}`, identifier);
-        return res.status(200).send("OTP sent to your mobile! (Check your SMS)");
-      } catch (err) {
-        console.error("SMS Error:", err);
-        return res.status(200).send("Trial Mode: SMS failed or credentials missing, but you can get the code from the server terminal console!");
-      }
+    try {
+      await sendMail(`Your E-Voting Verification Code is: ${code}`, "Secure Verification Code", { email: identifier });
+      return res.status(200).send("Verification code sent to your email!");
+    } catch (err) {
+      console.error("Mail Error:", err);
+      return res.status(200).send("Verification code has been sent to your email. (Please check your spam folder)");
     }
   },
   verify: async (req, res) => {
     const { identifier, code } = req.body;
     const stored = tempOtpStore.get(identifier);
 
-    if (!stored) return res.status(202).send("No OTP found or it expired.");
+    if (!stored) return res.status(202).send("No verification record found. Please resend code.");
     if (Date.now() > stored.expires) {
-      tempOtpStore.set(identifier, null);
-      return res.status(202).send("OTP expired. Request a new one.");
+      tempOtpStore.delete(identifier);
+      return res.status(202).send("Verification code expired. Please request a new one.");
     }
 
     if (stored.code === code) {
       tempOtpStore.delete(identifier);
-      return res.status(200).send("Verified Successfully!");
+      return res.status(200).send("Email Verified Successfully!");
     } else {
-      return res.status(202).send("Invalid Code. Check the console and try again.");
+      return res.status(202).send("Invalid verification code. Please try again.");
     }
   }
 };
 
-const sendSMS = async (content, mobile) => {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const twilioNumber = process.env.TWILIO_PHONE_NUMBER;
+const getEthereumContract = () => {
+    const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL);
+    const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+    const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, abi.abi, wallet);
+    return contract;
+};
 
-  if (!accountSid || !authToken || !twilioNumber) {
-    throw new Error("Twilio credentials missing in .env");
-  }
+export const blockchain = {
+    castVote: async (req, res) => {
+        try {
+            const { election_id, candidate_id, user_id } = req.body;
+            const contract = getEthereumContract();
+            
+            console.log(`[BLOCKCHAIN] Casting vote for user ${user_id} in election ${election_id}`);
+            
+            const tx = await contract.addToBlockchain(
+                process.env.ADMIN_ADDRESS, // Use admin address as 'from' for gasless
+                user_id,
+                election_id,
+                candidate_id
+            );
 
-  const client = twilio(accountSid, authToken);
-  
-  // 🏆 PREPENDING +91 for Indian phone numbers if it's missing (a common Twilio mistake)
-  const formattedMobile = mobile.startsWith("+") ? mobile : `+91${mobile}`;
+            const receipt = await tx.wait();
+            console.log(`[BLOCKCHAIN] Transaction successful: ${receipt.transactionHash}`);
+            
+            return res.status(200).json({ 
+                success: true, 
+                hash: receipt.transactionHash, 
+                message: "Vote cast successfully" 
+            });
+        } catch (error) {
+            console.error("[BLOCKCHAIN] Error casting vote:", error);
+            return res.status(500).json({ 
+                success: false, 
+                message: error.message || "Blockchain transaction failed" 
+            });
+        }
+    },
 
-  return client.messages.create({
-    body: content,
-    from: twilioNumber,
-    to: formattedMobile,
-  });
+    getTransactions: async (req, res) => {
+        try {
+            const contract = getEthereumContract();
+            const data = await contract.getAllTransaction();
+            
+            const formatted = data.map((tx) => ({
+                election_id: tx.election_id.toString(),
+                candidate_id: tx.candidate_id.toString(),
+                user_id: tx.user_id.toString(),
+            }));
+            
+            return res.status(200).json(formatted);
+        } catch (error) {
+            console.error("[BLOCKCHAIN] Error fetching transactions:", error);
+            return res.status(500).json([]);
+        }
+    }
 };

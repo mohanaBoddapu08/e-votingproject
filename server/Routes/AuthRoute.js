@@ -8,7 +8,9 @@ import {
   phase,
   votingMail,
   a,
+  a,
   otpTrial,
+  blockchain,
 } from "../Controller/AuthController.js";
 
 const router = Router();
@@ -42,7 +44,8 @@ router.post("/op", a.sc);
 router.post("/votingEmail", votingMail.send);
 
 // --- OTP TRIAL ROUTES ---
-router.post("/send-otp", otpTrial.send);
-router.post("/verify-otp", otpTrial.verify);
+// --- GASLESS BLOCKCHAIN ROUTES ---
+router.post("/cast-vote", blockchain.castVote);
+router.get("/get-transactions", blockchain.getTransactions);
 
 export default router;

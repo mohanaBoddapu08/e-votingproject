@@ -3,6 +3,8 @@ import { ethers } from "ethers";
 import { contractABI, contractAddress } from "../utils/Constant";
 
 export const TransactionContext = React.createContext();
+import { serverLink } from "../Data/Variables";
+import axios from "axios";
 
 const { ethereum } = window;
 
@@ -36,50 +38,45 @@ export const TransactionProvider = ({ children }) => {
   // ✅ FIXED TRANSACTION
   const sendTransaction = async (election_id, candidate_id, user_id) => {
     try {
-      const contract = createEthereumContract();
-
-      const tx = await contract.addToBlockchain(
-        currentAccount,
-        user_id,
+      console.log(`[FRONTEND] Requesting gasless vote for ${candidate_id}...`);
+      const response = await axios.post(serverLink + "cast-vote", {
         election_id,
-        candidate_id
-      );
+        candidate_id,
+        user_id
+      });
 
-      await tx.wait();
-
-      // ✅ FORCE REFRESH AFTER TX
-      await getAllTransactions();
-
-      return { success: true, hash: tx.hash, mess: "Vote Casted Successfully" };
+      if (response.data.success) {
+        await getAllTransactions();
+        return { 
+          success: true, 
+          hash: response.data.hash, 
+          mess: "Vote Casted Successfully on Blockchain via Server Relayer." 
+        };
+      } else {
+        return { success: false, mess: response.data.message || "Server rejected transaction." };
+      }
     } catch (error) {
       console.error(error);
-      return { success: false, mess: "Transaction Failed" };
+      return { success: false, mess: "Could not connect to back-end relayer." };
     }
   };
 
   // ✅ FIXED DATA FETCH (IMPORTANT CHANGE)
   const getAllTransactions = useCallback(async () => {
     try {
-      const contract = createEthereumContract();
-
-      const data = await contract.getAllTransaction();
-
-      console.log("RAW:", data);
-
-      // 🔥 IMPORTANT FIX → PROPER STRING CONVERSION
-      const formatted = data.map((tx) => ({
-        election_id: tx.election_id.toString(),
-        candidate_id: tx.candidate_id.toString(),
-        user_id: tx.user_id.toString(),
+      console.log("[FRONTEND] Fetching blockchain transactions via server...");
+      const response = await axios.get(serverLink + "get-transactions");
+      
+      const formatted = response.data.map((tx) => ({
+        election_id: tx.election_id,
+        candidate_id: tx.candidate_id,
+        user_id: tx.user_id,
       }));
 
-      console.log("FORMATTED:", formatted);
-
       setTransactions(formatted);
-
       return formatted;
     } catch (error) {
-      console.error(error);
+      console.error("[FRONTEND] Failed to sync with blockchain:", error);
       return [];
     }
   }, []);

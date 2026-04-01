@@ -46,28 +46,22 @@ const UserRegister = () => {
   const [showEmailOTP, setShowEmailOTP] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
 
-  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
-  const [showPhoneOTP, setShowPhoneOTP] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
-
-  // --- OTP TRIAL STATES & LOGIC ---
+  // --- OTP VERIFICATION STATES ---
   const [emailOtpInput, setEmailOtpInput] = useState("");
-  const [phoneOtpInput, setPhoneOtpInput] = useState("");
   const [isOtpSending, setIsOtpSending] = useState(false);
 
   const handleSendOTP = async (type, identifier) => {
     if (!identifier) {
-      alert(`Please enter your ${type} first.`);
+      alert(`Please enter your email first.`);
       return;
     }
     setIsOtpSending(true);
     try {
-      const res = await axios.post(serverLink + "send-otp", { identifier, type });
+      const res = await axios.post(serverLink + "send-otp", { identifier, type: "email" });
       alert(res.data);
-      if (type === "email") setShowEmailOTP(true);
-      else setShowPhoneOTP(true);
+      setShowEmailOTP(true);
     } catch (err) {
-      alert("Error sending OTP");
+      alert("Error sending OTP. Please check your internet connection.");
     } finally {
       setIsOtpSending(false);
     }
@@ -75,15 +69,14 @@ const UserRegister = () => {
 
   const handleVerifyOTP = async (type, identifier, code) => {
     if (!code) {
-      alert("Please enter the code you received.");
+      alert("Please enter the 6-digit code you received.");
       return;
     }
     try {
       const res = await axios.post(serverLink + "verify-otp", { identifier, code });
       if (res.status === 200) {
-        alert("Verified Successfully!");
-        if (type === "email") setEmailVerified(true);
-        else setPhoneVerified(true);
+        alert("Email Verified Successfully!");
+        setEmailVerified(true);
       } else {
         alert(res.data);
       }
@@ -175,8 +168,8 @@ const UserRegister = () => {
       alert("Please upload a clear profile photo to extract facial data.");
       return;
     }
-    if (!emailVerified || !phoneVerified) {
-      alert("CRITICAL: You must verify both Email and Mobile before finalizing registration.");
+    if (!emailVerified) {
+      alert("CRITICAL: You must verify your Email before finalizing registration.");
       return;
     }
     if (!formData.username || !formData.password || !formData.voterId || !formData.email) {
@@ -347,41 +340,7 @@ const UserRegister = () => {
             )}
           </Grid>
 
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              name="mobile"
-              label="Phone Number"
-              value={formData.mobile}
-              onChange={(e) => { handleChange(e); setShowPhoneVerify(true); }}
-            />
-          </Grid>
-
-          <Grid item xs={6} display="flex" alignItems="center">
-            {!phoneVerified && showPhoneVerify && !showPhoneOTP && (
-              <Button variant="contained" disabled={isOtpSending} onClick={() => handleSendOTP("mobile", formData.mobile)}>
-                {isOtpSending ? <CircularProgress size={20} color="inherit" /> : "Verify Mobile"}
-              </Button>
-            )}
-            {phoneVerified && (
-              <Typography style={{ color: "green", fontWeight: "bold" }}>
-                Mobile Verified ✓
-              </Typography>
-            )}
-            {showPhoneOTP && !phoneVerified && (
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs={5}>
-                  <TextField fullWidth size="small" label="Enter OTP" value={phoneOtpInput} onChange={(e) => setPhoneOtpInput(e.target.value)} />
-                </Grid>
-                <Grid item xs={7}>
-                  <Button variant="contained" color="success" onClick={() => handleVerifyOTP("mobile", formData.mobile, phoneOtpInput)}>
-                    Verify
-                  </Button>
-                  <Button variant="text" size="small" style={{ marginLeft: 8 }} onClick={() => handleSendOTP("mobile", formData.mobile)}>Resend</Button>
-                </Grid>
-              </Grid>
-            )}
-          </Grid>
+          {/* Phone Number Removed - Using Email OTP only */}
 
           <Grid item xs={12}>
              <Typography variant="h6" color="primary" style={{ marginTop: 10 }}>Address</Typography>
