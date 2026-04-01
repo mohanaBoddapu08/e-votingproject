@@ -1,469 +1,217 @@
-import React, { useState, useEffect } from "react";
-import {
-  TextField,
-  Button,
-  Typography,
-  Paper,
-  Grid,
-  MenuItem,
-  CircularProgress,
-  Box,
-  FormControlLabel,
-  Checkbox
-} from "@mui/material";
-
+import React, { useState } from "react";
 import axios from "axios";
-import { serverLink, isRegistrationOpen } from "../Data/Variables";
-
-// face-api.js is now loaded via CDN in index.html to avoid Webpack 5 polyfill issues
-const faceapi = window.faceapi;
-
-// Removed webcam and blink detection helper functions for registration.
-// Registration now uses photo upload instead of live biometric capture.
-
+import { Link, useNavigate } from "react-router-dom";
+import { ToastContainer, toast } from "react-toastify";
+import { signupOptions } from "../Data/Variables";
+import Title from "../Components/Title";
+import InputField from "../Components/Form/InputField";
+import InputTags from "../Components/Form/InputTags";
+import Footer from "../Components/User/Footer";
+import banner from "../Assets/Banner/undraw_voting_n77r.svg";
+import "react-toastify/dist/ReactToastify.css";
 
 const UserRegister = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [typedEmailOtp, setTypedEmailOtp] = useState("");
+  const [actualEmailOtp, setActualEmailOtp] = useState("");
 
-  const [formData, setFormData] = useState({
-    username: "",
-    password: "",
-    fname: "",
-    lname: "",
+  const [values, setValues] = useState({
+    name: "",
     email: "",
-    mobile: "",
-    location: "",
-    voterId: "",
-    aadharNumber: "",
-    isNRI: false
+    password: "",
+    confirmPassword: "",
+    aadhar: "",
+    dob: "",
+    gender: "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
   });
 
-  const handleChange = (e) => {
-    const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
-    setFormData({ ...formData, [e.target.name]: value });
+  const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
   };
 
-  const [showEmailVerify, setShowEmailVerify] = useState(false);
-  const [showEmailOTP, setShowEmailOTP] = useState(false);
-  const [emailVerified, setEmailVerified] = useState(false);
-
-  // --- OTP VERIFICATION STATES ---
-  const [emailOtpInput, setEmailOtpInput] = useState("");
-  const [isOtpSending, setIsOtpSending] = useState(false);
-
-  const handleSendOTP = async (type, identifier) => {
-    if (!identifier) {
-      alert(`Please enter your email first.`);
+  const handleSendEmailOtp = async () => {
+    if (!values.email) {
+      toast.error("Please enter your email first!", signupOptions);
       return;
     }
-    setIsOtpSending(true);
+    setLoading(true);
+    const otp = generateOTP();
+    setActualEmailOtp(otp);
+
     try {
-      const res = await axios.post(serverLink + "send-otp", { identifier, type: "email" });
-      alert(res.data);
-      setShowEmailOTP(true);
+      // Simulate/Send OTP via backend
+      await axios.post("https://e-votingproject.onrender.com/api/auth/otp", { 
+        identifier: values.email, 
+        otp 
+      });
+      setEmailOtpSent(true);
+      toast.success("OTP sent to your email!", signupOptions);
     } catch (err) {
-      alert("Error sending OTP. Please check your internet connection.");
+      console.error(err);
+      toast.error("Failed to send OTP.", signupOptions);
     } finally {
-      setIsOtpSending(false);
+      setLoading(false);
     }
   };
 
-  const handleVerifyOTP = async (type, identifier, code) => {
-    if (!code) {
-      alert("Please enter the 6-digit code you received.");
-      return;
-    }
-    try {
-      const res = await axios.post(serverLink + "verify-otp", { identifier, code });
-      if (res.status === 200) {
-        alert("Email Verified Successfully!");
-        setEmailVerified(true);
-      } else {
-        alert(res.data);
-      }
-    } catch (err) {
-      alert("Invalid OTP or Verification Failed.");
+  const verifyEmailOtp = () => {
+    if (typedEmailOtp === actualEmailOtp) {
+      setEmailVerified(true);
+      toast.success("Email verified successfully!", signupOptions);
+    } else {
+      toast.error("Incorrect OTP!", signupOptions);
     }
   };
 
-  // --- FACE RECOGNITION ML LOGIC ---
-  // Face Recognition States
-  const [modelsLoaded, setModelsLoaded] = useState(false);
-  const [faceDescriptor, setFaceDescriptor] = useState(null);
-  const [profileFile, setProfileFile] = useState(null); // Actual binary file for backend profile
-  const [profilePreview, setProfilePreview] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [idCardFile, setIdCardFile] = useState(null);
-  const [idCardPreview, setIdCardPreview] = useState(null);
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
-
-  useEffect(() => {
-    const loadModels = async () => {
-      try {
-        console.log("Starting to load face-api models...");
-        const MODEL_URL = '/models'; // Switch back to simple relative path
-        console.log("Using Model URL:", MODEL_URL);
-        
-        await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-        
-        console.log("Face-api models loaded successfully!");
-        setModelsLoaded(true);
-      } catch (error) {
-        console.error("Error loading face-api models:", error);
-      }
-    };
-    loadModels();
-  }, []);
-
-  const handleProfileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    if (!modelsLoaded) {
-      alert("AI models are still loading. Please wait a moment.");
-      return;
-    }
-
-    setProfileFile(file);
-    setProfilePreview(URL.createObjectURL(file));
-    setIsProcessing(true);
-    setFaceDescriptor(null);
-
-    try {
-      // Create an image element to process with face-api
-      const img = await faceapi.bufferToImage(file);
-      const detections = await faceapi.detectSingleFace(
-        img, 
-        new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
-      ).withFaceLandmarks().withFaceDescriptor();
-      
-      if (detections) {
-        setFaceDescriptor(Array.from(detections.descriptor));
-        alert("Facial biometric data extracted successfully! You can now complete registration.");
-      } else {
-        alert("CRITICAL: No face detected in the photo. Please upload a clear, front-facing portrait of yourself.");
-        setProfileFile(null);
-        setProfilePreview(null);
-      }
-    } catch (err) {
-      console.error("AI Processing Error:", err);
-      alert("Error processing image. Please try a different photo.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-
-  const handleIdCardUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setIdCardFile(file);
-    setIdCardPreview(URL.createObjectURL(file));
-    alert("Voter ID Document uploaded successfully!");
-  };
-
-  const handleRegister = async () => {
-    if (!faceDescriptor) {
-      alert("Please upload a clear profile photo to extract facial data.");
-      return;
-    }
     if (!emailVerified) {
-      alert("CRITICAL: You must verify your Email before finalizing registration.");
-      return;
-    }
-    if (!formData.username || !formData.password || !formData.voterId || !formData.email) {
-      alert("Please fill in Username, Password, Voter ID, and Email.");
+      toast.error("Please verify your email first!", signupOptions);
       return;
     }
 
-    // 🔒 SECURITY CHECK: Voter ID Format Validation
-    if (!formData.isNRI) {
-      // Validates typical Voter ID formats (e.g., alphanumeric 8-15 chars)
-      const voterIdRegex = /^[a-zA-Z0-9]{8,15}$/;
-      if (!voterIdRegex.test(formData.voterId)) {
-        alert("⛔ INVALID CARD: The Voter ID format is incorrect. Please enter a valid 8-15 character alphanumeric ID.");
-        return;
-      }
+    if (values.password !== values.confirmPassword) {
+      toast.error("Passwords do not match!", signupOptions);
+      return;
     }
 
-    const data = new FormData();
-    Object.keys(formData).forEach(key => data.append(key, formData[key]));
-    
-    // Inject the mathematical face string
-    data.append("faceDescriptor", JSON.stringify(faceDescriptor));
-    
-    // Add the actual files for the backend (naming must match multer .fields())
-    if (profileFile) {
-      data.append("profile", profileFile);
-    }
-    if (idCardFile) {
-      data.append("idCard", idCardFile);
-    }
-
+    setLoading(true);
     try {
-      const res = await axios.post(serverLink + "register", data);
-      alert(res.data || "Registration Successful!");
-      window.location.href = "/login";
-
-    } catch (e) {
-      console.error(e);
-      const errorMsg = e.response?.data?.message || e.response?.data || "Registration failed";
-      const errorDetail = e.response?.data?.error || "";
-      alert(`${errorMsg}${errorDetail ? ": " + errorDetail : ""}`);
+      const { data } = await axios.post("https://e-votingproject.onrender.com/api/auth/register", values);
+      if (data.status === false) {
+        toast.error(data.message, signupOptions);
+      } else {
+        toast.success("Registered Successfully!", signupOptions);
+        setTimeout(() => navigate("/login"), 2000);
+      }
+    } catch (err) {
+      toast.error("Registration failed. Please try again.", signupOptions);
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (!isRegistrationOpen) {
-    return (
-      <Grid container justifyContent="center" style={{ marginTop: "100px", marginBottom: "50px" }}>
-        <Paper style={{ padding: 60, width: "60%", textAlign: "center", background: "#f8d7da" }}>
-          <Typography variant="h4" color="error" gutterBottom>
-            Registration is Currently Closed
-          </Typography>
-          <Typography variant="body1">
-            The Election Commission has closed the registration window. You cannot register at this time.
-            Please wait for the next Pre-Election Voter Roll Initialization phase.
-          </Typography>
-          <Button variant="contained" color="primary" href="/" style={{ marginTop: 20 }}>
-            Return to Home
-          </Button>
-        </Paper>
-      </Grid>
-    );
-  }
+  const handleChange = (e) => {
+    setValues({ ...values, [e.target.name]: e.target.value });
+  };
 
   return (
-    <Grid container justifyContent="center" style={{ marginTop: "100px", marginBottom: "50px" }}>
-      <Paper style={{ padding: 40, width: "85%" }}>
-        <Typography variant="h4" align="center" gutterBottom>
-          Secure Voter Registration
-        </Typography>
+    <>
+      <Title title="User | Signup" />
+      <div className="signup__root d-flex align-items-center justify-content-center">
+        <div className="signup__container d-flex shadow-lg bg-white overflow-hidden">
+          {/* Banner */}
+          <div className="signup__banner d-none d-md-flex flex-column align-items-center justify-content-center text-white">
+            <img src={banner} alt="Signup" className="img-fluid mb-4 px-4" />
+            <h2 className="fw-bold">Welcome!</h2>
+            <p className="px-5 text-center">Join the transparent and secure voting revolution.</p>
+          </div>
 
-        <Grid container spacing={3}>
-          
-          <Grid item xs={12}>
-             <Typography variant="h6" color="primary" style={{ marginTop: 20 }}>Account Credentials</Typography>
-          </Grid>
+          {/* Form */}
+          <div className="signup__form p-4 p-md-5 overflow-auto">
+            <h1 className="mb-4 fw-bold">Sign Up</h1>
+            <p className="text-secondary mb-4">Create your account to cast your vote.</p>
 
-          <Grid item xs={6}>
-            <TextField fullWidth name="username" label="Username" value={formData.username} onChange={handleChange} />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField fullWidth name="password" label="Password" type="password" value={formData.password} onChange={handleChange} />
-          </Grid>
+            <form onSubmit={handleSubmit} className="row g-3">
+              <div className="col-12">
+                <InputField label="Full Name" placeholder="Enter Full Name" name="name" onChange={handleChange} required />
+              </div>
 
-          <Grid item xs={12}>
-             <Typography variant="h6" color="primary" style={{ marginTop: 10 }}>Personal Details</Typography>
-          </Grid>
+              <div className="col-12">
+                <div className="input-group">
+                  <InputField label="Email ID" placeholder="Email Address" type="email" name="email" onChange={handleChange} required />
+                  <button 
+                    type="button" 
+                    className="btn btn-outline-primary ms-2 mt-4" 
+                    style={{ height: '45px' }} 
+                    onClick={handleSendEmailOtp} 
+                    disabled={emailVerified || loading}
+                  >
+                    {emailVerified ? "Verified" : "Send OTP"}
+                  </button>
+                </div>
+              </div>
 
-          <Grid item xs={6}>
-            <TextField fullWidth name="fname" label="First Name" value={formData.fname} onChange={handleChange} />
-          </Grid>
-          <Grid item xs={6}>
-            <TextField fullWidth name="lname" label="Last Name" value={formData.lname} onChange={handleChange} />
-          </Grid>
+              {!emailVerified && emailOtpSent && (
+                <div className="col-12 d-flex align-items-center">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Enter Email OTP"
+                    onChange={(e) => setTypedEmailOtp(e.target.value)}
+                  />
+                  <button type="button" className="btn btn-success ms-2" onClick={verifyEmailOtp}>Verify</button>
+                </div>
+              )}
 
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              type="date"
-              label="Date of Birth"
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
+              <div className="col-md-6">
+                <InputField label="Aadhar Number" placeholder="12-digit UID" name="aadhar" onChange={handleChange} required />
+              </div>
 
-          <Grid item xs={6}>
-            <TextField select fullWidth label="Gender" defaultValue="Male">
-              <MenuItem value="Male">Male</MenuItem>
-              <MenuItem value="Female">Female</MenuItem>
-              <MenuItem value="Other">Other</MenuItem>
-            </TextField>
-          </Grid>
+              <div className="col-md-6">
+                <InputField label="Date of Birth" type="date" name="dob" onChange={handleChange} required />
+              </div>
 
-          {/* Identity */}
-          <Grid item xs={12}>
-             <Typography variant="h6" color="primary" style={{ marginTop: 10 }}>Identity Documents</Typography>
-             <FormControlLabel
-               control={<Checkbox checked={formData.isNRI} onChange={handleChange} name="isNRI" />}
-               label="🔴 I am an NRI (Non-Resident Indian) registering remotely"
-               style={{ marginTop: 5, color: "#d32f2f", fontWeight: "bold" }}
-             />
-          </Grid>
+              <div className="col-md-6">
+                <label className="form-label fw-semibold">Gender</label>
+                <div className="d-flex gap-3">
+                  <div className="form-check">
+                    <input className="form-check-input" type="radio" name="gender" value="Male" onChange={handleChange} id="male" required />
+                    <label className="form-check-label" htmlFor="male">Male</label>
+                  </div>
+                  <div className="form-check">
+                    <input className="form-check-input" type="radio" name="gender" value="Female" onChange={handleChange} id="female" />
+                    <label className="form-check-label" htmlFor="female">Female</label>
+                  </div>
+                </div>
+              </div>
 
-          <Grid item xs={6}>
-            <TextField fullWidth name="voterId" label={formData.isNRI ? "Passport Number (NRI)" : "Voter ID Number"} value={formData.voterId} onChange={handleChange} />
-          </Grid>
+              <div className="col-12">
+                <InputField label="Residential Address" placeholder="Street/Area" name="address" onChange={handleChange} required />
+              </div>
 
-          <Grid item xs={6}>
-            <TextField fullWidth name="aadharNumber" label={formData.isNRI ? "Overseas Visa / Resident Permit (Optional)" : "Aadhaar Number"} value={formData.aadharNumber} onChange={handleChange} inputProps={{ maxLength: formData.isNRI ? undefined : 12 }} />
-          </Grid>
+              <div className="col-md-4">
+                <InputField label="City" placeholder="City" name="city" onChange={handleChange} required />
+              </div>
+              <div className="col-md-4">
+                <InputField label="State" placeholder="State" name="state" onChange={handleChange} required />
+              </div>
+              <div className="col-md-4">
+                <InputField label="Pincode" placeholder="Pincode" name="pincode" onChange={handleChange} required />
+              </div>
 
-          {/* Contact verifications */}
-          <Grid item xs={12}>
-             <Typography variant="h6" color="primary" style={{ marginTop: 10 }}>Verifications</Typography>
-          </Grid>
+              <div className="col-md-6">
+                <InputField label="Password" type="password" name="password" onChange={handleChange} required />
+              </div>
+              <div className="col-md-6">
+                <InputField label="Confirm Password" type="password" name="confirmPassword" onChange={handleChange} required />
+              </div>
 
-          <Grid item xs={6}>
-            <TextField
-              fullWidth
-              name="email"
-              label="Email"
-              value={formData.email}
-              onChange={(e) => { handleChange(e); setShowEmailVerify(true); }}
-            />
-          </Grid>
+              <div className="col-12 mt-4">
+                <button type="submit" className="btn btn-primary w-100 py-2 fw-bold" disabled={!emailVerified || loading}>
+                  {loading ? "Registering..." : "Create Account"}
+                </button>
+              </div>
 
-          <Grid item xs={6} display="flex" alignItems="center">
-            {!emailVerified && showEmailVerify && !showEmailOTP && (
-              <Button variant="contained" disabled={isOtpSending} onClick={() => handleSendOTP("email", formData.email)}>
-                {isOtpSending ? <CircularProgress size={20} color="inherit" /> : "Verify Email"}
-              </Button>
-            )}
-            {emailVerified && (
-              <Typography style={{ color: "green", fontWeight: "bold" }}>
-                Email Verified ✓
-              </Typography>
-            )}
-            {showEmailOTP && !emailVerified && (
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs={5}>
-                  <TextField fullWidth size="small" label="Enter OTP" value={emailOtpInput} onChange={(e) => setEmailOtpInput(e.target.value)} />
-                </Grid>
-                <Grid item xs={7}>
-                  <Button variant="contained" color="success" onClick={() => handleVerifyOTP("email", formData.email, emailOtpInput)}>
-                    Verify
-                  </Button>
-                  <Button variant="text" size="small" style={{ marginLeft: 8 }} onClick={() => handleSendOTP("email", formData.email)}>Resend</Button>
-                </Grid>
-              </Grid>
-            )}
-          </Grid>
-
-          {/* Phone Number Removed - Using Email OTP only */}
-
-          <Grid item xs={12}>
-             <Typography variant="h6" color="primary" style={{ marginTop: 10 }}>Address</Typography>
-          </Grid>
-
-          <Grid item xs={6}>
-            <TextField fullWidth name="location" label="City" value={formData.location} onChange={handleChange} />
-          </Grid>
-
-          <Grid item xs={6}>
-            <TextField fullWidth label="Pincode" />
-          </Grid>
-
-          {/* FACIAL CAPTURE INTEGRATION */}
-          <Grid item xs={12}>
-             <Typography variant="h6" color="primary" style={{ marginTop: 10 }}>Biometric Profile Setup</Typography>
-             <Typography variant="body2" color="textSecondary" style={{ marginBottom: 15 }}>
-               Please upload a clear portrait photo. Our AI will extract your facial biometric matrix which will be used to verify your identity during voting. 
-               <b> (Live liveness/blink detection is only required during the actual voting process).</b>
-             </Typography>
-             
-             {!modelsLoaded ? (
-                 <Box display="flex" alignItems="center">
-                   <CircularProgress size={24} style={{ marginRight: 15 }} />
-                   <Typography>Initializing AI modules...</Typography>
-                 </Box>
-              ) : (
-                  <Box>
-                    <input
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      id="profile-upload"
-                      type="file"
-                      onChange={handleProfileUpload}
-                    />
-                    <label htmlFor="profile-upload">
-                      <Button variant="contained" component="span" color="primary">
-                        Upload Profile Photo
-                      </Button>
-                    </label>
-
-                    {isProcessing && (
-                      <Box mt={2} display="flex" alignItems="center">
-                        <CircularProgress size={20} style={{ marginRight: 10 }} />
-                        <Typography variant="body2">AI is analyzing face data...</Typography>
-                      </Box>
-                    )}
-
-                    {profilePreview && (
-                      <Box mt={2} textAlign="center">
-                        <img 
-                          src={profilePreview} 
-                          alt="Profile Preview" 
-                          style={{ width: 200, height: 200, objectFit: 'cover', borderRadius: '50%', border: "4px solid #1976d2" }} 
-                        />
-                        {faceDescriptor ? (
-                          <Typography variant="body2" style={{ color: 'green', fontWeight: 'bold', marginTop: 10 }}>
-                             ✅ Face Detected & Biometric Profile Created
-                          </Typography>
-                        ) : !isProcessing && (
-                          <Typography variant="body2" color="error" style={{ marginTop: 10 }}>
-                             ❌ No Face Detected. Try another photo.
-                          </Typography>
-                        )}
-                      </Box>
-                    )}
-                  </Box>
-               )}
-          </Grid>
-
-          {/* VOTER ID DOCUMENT UPLOAD */}
-          <Grid item xs={12}>
-             <Typography variant="h6" color="primary" style={{ marginTop: 10 }}>Multi-Layer Identity Verification</Typography>
-             <Typography variant="body2" color="textSecondary" style={{ marginBottom: 15 }}>
-               {formData.isNRI ? (
-                 <>Please upload a clear scan or photo of your <b>Valid Indian Passport</b> for remote verification by the election commission.</>
-               ) : (
-                 <>Please upload a clear scan or photo of your <b>Voter ID Card</b> or <b>Aadhaar Card</b> for manual verification by the election commission.</>
-               )}
-               {formData.isNRI && (
-                 <span style={{ display: "block", color: "#d32f2f", marginTop: "5px" }}>
-                   (NRI Mode: Ensure your Passport scan clearly shows your photo and identifying details. If your local consulate requires visa verification, please combine your Passport and Visa scan into a single PDF.)
-                 </span>
-               )}
-             </Typography>
-             <Box>
-                <input
-                  accept="image/*,application/pdf"
-                  style={{ display: 'none' }}
-                  id="id-card-file"
-                  type="file"
-                  onChange={handleIdCardUpload}
-                />
-                <label htmlFor="id-card-file">
-                  <Button variant="contained" component="span" color="info">
-                    Upload Identity Document
-                  </Button>
-                </label>
-
-                {idCardPreview && (
-                  <Box mt={2}>
-                    {idCardFile && idCardFile.type && idCardFile.type.includes("image") ? (
-                      <img src={idCardPreview} alt="ID Preview" style={{ width: 300, borderRadius: 8, border: "2px solid #ccc" }} />
-                    ) : (
-                      <Typography color="primary">Document Uploaded ✓</Typography>
-                    )}
-                    <Typography style={{ color: "green", fontWeight: "bold", marginTop: 10 }}>
-                      ✅ Identity Document Ready!
-                    </Typography>
-                  </Box>
-                )}
-             </Box>
-          </Grid>
-        </Grid>
-
-        <Grid container justifyContent="center" style={{ marginTop: 40 }}>
-          <Button variant="contained" size="large" color="secondary" onClick={handleRegister}>
-            Finalize Registration
-          </Button>
-        </Grid>
-
-      </Paper>
-    </Grid>
+              <div className="col-12 text-center mt-3">
+                <span className="text-secondary">Already have an account? </span>
+                <Link to="/login" className="text-decoration-none fw-bold">Login here</Link>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <Footer />
+      <ToastContainer />
+    </>
   );
 };
 
