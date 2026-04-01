@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { TransactionContext } from "../../../context/TransactionContext";
 import { Grid, Toolbar } from "@mui/material";
 import ElectionResult from "../../../Components/Admin/ElectionResult";
+import ContentHeader from "../../../Components/ContentHeader";
 import { getResult } from "../../../Data/Methods";
 import { serverLink } from "../../../Data/Variables";
 import axios from "axios";
