@@ -1,13 +1,10 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
-import { ToastContainer, toast } from "react-toastify";
-import { signupOptions } from "../Data/Variables";
 import InputField from "../Components/Form/InputField";
 import InputTags from "../Components/Form/InputTags";
 import Footer from "../Components/User/Footer";
 import banner from "../Assets/Banner/undraw_voting_n77r.svg";
-import "react-toastify/dist/ReactToastify.css";
 
 const UserRegister = () => {
   const navigate = useNavigate();
@@ -37,7 +34,7 @@ const UserRegister = () => {
 
   const handleSendEmailOtp = async () => {
     if (!values.email) {
-      toast.error("Please enter your email first!", signupOptions);
+      alert("Please enter your email first!");
       return;
     }
     setLoading(true);
@@ -51,10 +48,10 @@ const UserRegister = () => {
         otp 
       });
       setEmailOtpSent(true);
-      toast.success("OTP sent to your email!", signupOptions);
+      alert("OTP sent to your email!");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to send OTP.", signupOptions);
+      alert("Failed to send OTP.");
     } finally {
       setLoading(false);
     }
@@ -63,9 +60,9 @@ const UserRegister = () => {
   const verifyEmailOtp = () => {
     if (typedEmailOtp === actualEmailOtp) {
       setEmailVerified(true);
-      toast.success("Email verified successfully!", signupOptions);
+      alert("Email verified successfully!");
     } else {
-      toast.error("Incorrect OTP!", signupOptions);
+      alert("Incorrect OTP!");
     }
   };
 
@@ -73,12 +70,12 @@ const UserRegister = () => {
     event.preventDefault();
 
     if (!emailVerified) {
-      toast.error("Please verify your email first!", signupOptions);
+      alert("Please verify your email first!");
       return;
     }
 
     if (values.password !== values.confirmPassword) {
-      toast.error("Passwords do not match!", signupOptions);
+      alert("Passwords do not match!");
       return;
     }
 
@@ -86,13 +83,13 @@ const UserRegister = () => {
     try {
       const { data } = await axios.post("https://e-votingproject.onrender.com/api/auth/register", values);
       if (data.status === false) {
-        toast.error(data.message, signupOptions);
+        alert(data.message);
       } else {
-        toast.success("Registered Successfully!", signupOptions);
+        alert("Registered Successfully!");
         setTimeout(() => navigate("/login"), 2000);
       }
     } catch (err) {
-      toast.error("Registration failed. Please try again.", signupOptions);
+      alert("Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -208,7 +205,6 @@ const UserRegister = () => {
         </div>
       </div>
       <Footer />
-      <ToastContainer />
     </>
   );
 };
