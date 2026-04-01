@@ -2,9 +2,9 @@ import React, { useState, useContext } from "react";
 import { Container, Paper, TextField, Button, Typography, Box, Alert, Avatar } from "@mui/material";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import { useNavigate } from "react-router-dom";
-import { TransactionContext } from "../../context/TransactionContext";
+import { TransactionContext } from "../../../context/TransactionContext";
 import axios from "axios";
-import { serverLink } from "../../Data/Variables";
+import { serverLink } from "../../../Data/Variables";
 
 const AdminLogin = () => {
     const { connectWallet, currentAccount } = useContext(TransactionContext);
@@ -38,8 +38,6 @@ const AdminLogin = () => {
 
             // 2. Strict Blockchain Signature Check (Case Insensitive)
             if (walletAddress.toLowerCase() !== ADMIN_WALLET.toLowerCase()) {
-                console.log("Expected:", ADMIN_WALLET.toLowerCase());
-                console.log("Received:", walletAddress.toLowerCase());
                 setError("ACCESS DENIED: Unauthorized MetaMask Signature.");
                 setLoading(false);
                 return;
@@ -95,12 +93,6 @@ const AdminLogin = () => {
                         {loading ? "Authenticating..." : "SECURE SIGN IN"}
                     </Button>
                 </form>
-                
-                <Box mt={3}>
-                   <Typography variant="caption" color="textSecondary">
-                      Multi-Factor Authentication (MFA) Enabled by Blockchain Signature
-                   </Typography>
-                </Box>
             </Paper>
         </Container>
     );
