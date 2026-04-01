@@ -1,15 +1,14 @@
 import express from "express";
 import AuthController from "../Controller/AuthController.js";
 
-const { login, register, otpTrial, blockchain } = AuthController;
 const router = express.Router();
 
-router.post("/login", login);
-router.post("/register", register);
-router.post("/otp", otpTrial);
+router.post("/login", AuthController.login);
+router.post("/register", AuthController.register);
+router.post("/otp", AuthController.otpTrial);
 
 // Blockchain Routes
-router.post("/cast-vote", blockchain.castVote);
-router.get("/get-transactions", blockchain.getTransactions);
+router.post("/cast-vote", AuthController.blockchain.castVote);
+router.get("/get-transactions", AuthController.blockchain.getTransactions);
 
 export default router;
