@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 import { contractABI, contractAddress } from "../utils/Constant";
-import { serverLink } from "../Data/Variables";
-import axios from "axios";
 
 export const TransactionContext = React.createContext();
 
@@ -38,45 +36,50 @@ export const TransactionProvider = ({ children }) => {
   // ✅ FIXED TRANSACTION
   const sendTransaction = async (election_id, candidate_id, user_id) => {
     try {
-      console.log(`[FRONTEND] Requesting gasless vote for ${candidate_id}...`);
-      const response = await axios.post(serverLink + "cast-vote", {
-        election_id,
-        candidate_id,
-        user_id
-      });
+      const contract = createEthereumContract();
 
-      if (response.data.success) {
-        await getAllTransactions();
-        return { 
-          success: true, 
-          hash: response.data.hash, 
-          mess: "Vote Casted Successfully on Blockchain via Server Relayer." 
-        };
-      } else {
-        return { success: false, mess: response.data.message || "Server rejected transaction." };
-      }
+      const tx = await contract.addToBlockchain(
+        currentAccount,
+        user_id,
+        election_id,
+        candidate_id
+      );
+
+      await tx.wait();
+
+      // ✅ FORCE REFRESH AFTER TX
+      await getAllTransactions();
+
+      return { success: true, hash: tx.hash, mess: "Vote Casted Successfully" };
     } catch (error) {
       console.error(error);
-      return { success: false, mess: "Could not connect to back-end relayer." };
+      return { success: false, mess: "Transaction Failed" };
     }
   };
 
   // ✅ FIXED DATA FETCH (IMPORTANT CHANGE)
   const getAllTransactions = useCallback(async () => {
     try {
-      console.log("[FRONTEND] Fetching blockchain transactions via server...");
-      const response = await axios.get(serverLink + "get-transactions");
-      
-      const formatted = response.data.map((tx) => ({
-        election_id: tx.election_id,
-        candidate_id: tx.candidate_id,
-        user_id: tx.user_id,
+      const contract = createEthereumContract();
+
+      const data = await contract.getAllTransaction();
+
+      console.log("RAW:", data);
+
+      // 🔥 IMPORTANT FIX → PROPER STRING CONVERSION
+      const formatted = data.map((tx) => ({
+        election_id: tx.election_id.toString(),
+        candidate_id: tx.candidate_id.toString(),
+        user_id: tx.user_id.toString(),
       }));
 
+      console.log("FORMATTED:", formatted);
+
       setTransactions(formatted);
+
       return formatted;
     } catch (error) {
-      console.error("[FRONTEND] Failed to sync with blockchain:", error);
+      console.error(error);
       return [];
     }
   }, []);

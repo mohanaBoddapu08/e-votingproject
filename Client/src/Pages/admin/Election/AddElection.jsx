@@ -16,9 +16,7 @@ const AddElection = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const name = e.target.name.value;
-    const startHour = parseInt(e.target.startHour.value) || 9;
-    const endHour = parseInt(e.target.endHour.value) || 17;
-    const data = { name, candidates, startHour, endHour };
+    const data = { name, candidates };
     console.log(data);
 
     axios
@@ -53,12 +51,7 @@ const AddElection = () => {
                       candidates={candidates}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <InputField label="Start Hour (0-23) e.g. 9 for 9 AM" name="startHour" fullWidth={true} type="number" />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <InputField label="End Hour (0-23) e.g. 17 for 5 PM" name="endHour" fullWidth={true} type="number" />
-                  </Grid>
+                  <Grid item xs={12} sm={6}></Grid>
                 </Grid>
                 <Box mt={3}>
                   <Button type="submit" variant="contained" color="primary">

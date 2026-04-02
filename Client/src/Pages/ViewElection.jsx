@@ -1,10 +1,10 @@
 import React, { useContext, useEffect, useState, useRef, useCallback } from "react";
 import { TransactionContext } from "../context/TransactionContext";
 import { useParams } from "react-router-dom";
-import { Button, Grid, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Box, CircularProgress, TextField, LinearProgress, Alert } from "@mui/material";
+import { Button, Grid, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Box, CircularProgress, TextField, LinearProgress, Alert, Card, CardMedia, CardContent, CardActions } from "@mui/material";
 import Webcam from "react-webcam";
-import { serverLink } from "../Data/Variables";
 import axios from "axios";
+import { serverLink, facesLink } from "../Data/Variables";
 
 // face-api.js is now loaded via CDN in index.html to avoid Webpack 5 polyfill issues
 const faceapi = window.faceapi;
@@ -21,11 +21,10 @@ const calculateEAR = (eye) => {
 };
 
 export default function ViewElection() {
+  const { sendTransaction, connectWallet, currentAccount, getElectionTimes } = useContext(TransactionContext);
   const { id } = useParams();
-  const { currentAccount, sendTransaction, getElectionTimes, connectWallet } = useContext(TransactionContext);
 
   const [candidates, setCandidates] = useState([]);
-  const [allCandidatesDetails, setAllCandidatesDetails] = useState([]);
   
   // Election Timer State
   const [electionWindow, setElectionWindow] = useState({ start: 0, end: 0 });
@@ -51,6 +50,17 @@ export default function ViewElection() {
   const [inputPasscode, setInputPasscode] = useState("");
   const [isCredentialVerified, setIsCredentialVerified] = useState(false);
   const [timer, setTimer] = useState(180); // 180 seconds session limit
+  const [hasAlreadyVoted, setHasAlreadyVoted] = useState(false);
+
+  useEffect(() => {
+    const profile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+    if (profile._id) {
+       axios.get(serverLink + `user/${profile._id}`).then(res => {
+         if (res.data && res.data.hasVoted) setHasAlreadyVoted(true);
+       });
+    }
+  }, []);
+
   useEffect(() => {
     async function fetchCandidates() {
       try {
@@ -64,93 +74,29 @@ export default function ViewElection() {
     fetchCandidates();
   }, [id]);
 
-  const blinkCounterRef = React.useRef(0);
-  const stableFramesRef = React.useRef(0);
-  const lastPosRef = React.useRef({ x: 0, y: 0 });
-
   useEffect(() => {
     async function fetchTimes() {
       if (getElectionTimes) {
-        const bcTimes = await getElectionTimes();
-        
-        // If Blockchain times are set (non-zero), they take precedence (Immutable proof)
-        let sHour = 9;
-        let eHour = 17;
-        let isFallback = false;
-        
-        // Fetch Admin-configured start/end hours from database
-        try {
-          const res = await axios.get(serverLink + `election/${id}`);
-          const dbElection = res.data;
-          sHour = dbElection.startHour || 9;
-          eHour = dbElection.endHour || 17;
-          if (dbElection.startDate && dbElection.endDate) {
-            isFallback = true;
-          }
-        } catch (e) {
-          console.error("Failed to fetch database fallback times", e);
-        }
-
-        if (bcTimes.start > 0 || bcTimes.end > 0) {
-          setElectionWindow({ ...bcTimes, startHour: sHour, endHour: eHour, isFallback });
-        } else {
-          try {
-            const res = await axios.get(serverLink + `election/${id}`);
-            const dbElection = res.data;
-            if (dbElection.startDate && dbElection.endDate) {
-              setElectionWindow({
-                start: Math.floor(new Date(dbElection.startDate).getTime() / 1000),
-                end: Math.floor(new Date(dbElection.endDate).getTime() / 1000),
-                startHour: sHour,
-                endHour: eHour,
-                isFallback: true
-              });
-            }
-          } catch (e) {
-            console.error("Failed to fetch database fallback times", e);
-          }
-        }
+        const times = await getElectionTimes();
+        setElectionWindow(times);
       }
     }
     fetchTimes();
-    
-    // Fetch detailed candidate profiles (to show photos)
-    axios.get(serverLink + "candidates").then(res => {
-      setAllCandidatesDetails(res.data || []);
-    }).catch(err => console.error(err));
-  }, [id, getElectionTimes]);
+  }, [getElectionTimes]);
 
   useEffect(() => {
     const checkWindow = () => {
-      // 🕒 SYSTEM RULE: Voting only allowed within Admin-specified hours
-      const currentHour = new Date().getHours();
-      const sHour = electionWindow.startHour !== undefined ? electionWindow.startHour : 9;
-      const eHour = electionWindow.endHour !== undefined ? electionWindow.endHour : 17;
-      const isWithinVotingHours = currentHour >= sHour && currentHour < eHour;
-
-      if (!isWithinVotingHours) {
-        setIsElectionActive(false);
-        setWindowMessage(`Voting is strictly restricted to business hours: ${sHour}:00 - ${eHour}:00.`);
-        return;
-      }
-
-      if (electionWindow.start === 0 && electionWindow.end === 0) {
-        setIsElectionActive(true); // Default to active if NO timers set anywhere
-        setWindowMessage("");
-        return;
-      }
+      if (electionWindow.start === 0 && electionWindow.end === 0) return;
       const now = Math.floor(Date.now() / 1000);
-      const prefix = electionWindow.isFallback ? "⏰ (Scheduled) " : "";
-      
       if (now < electionWindow.start) {
         setIsElectionActive(false);
-        setWindowMessage(`${prefix}Election starts at: ${new Date(electionWindow.start * 1000).toLocaleString()}`);
+        setWindowMessage(`Election starts at: ${new Date(electionWindow.start * 1000).toLocaleString()}`);
       } else if (now > electionWindow.end) {
         setIsElectionActive(false);
-        setWindowMessage(`${prefix}Election ended at: ${new Date(electionWindow.end * 1000).toLocaleString()}`);
+        setWindowMessage(`Election ended at: ${new Date(electionWindow.end * 1000).toLocaleString()}`);
       } else {
         setIsElectionActive(true);
-        setWindowMessage(`${prefix}Election ends at: ${new Date(electionWindow.end * 1000).toLocaleString()}`);
+        setWindowMessage(`Election ends at: ${new Date(electionWindow.end * 1000).toLocaleString()}`);
       }
     };
     checkWindow();
@@ -189,28 +135,15 @@ export default function ViewElection() {
       window.location.href = "/login";
       return;
     }
-
-    const profile = JSON.parse(userProfileStr);
-
-    // 🔒 SECURITY CHECK: One Voter, One Vote (Real-time Backend Check)
-    axios.get(serverLink + `user/${profile._id}`).then((res) => {
-        if (res.data && res.data.hasVoted) {
-            alert("⛔ ACCESS DENIED: Our records show you have already cast your vote in this election.\n\nDouble-voting is strictly prohibited by Digital Democracy Law No. 2026-A.");
-            return;
-        }
-        
-        setTargetCandidate(candidate);
-        setIsAuthenticating(true); // Pops up the MFA + Webcam Dialog
-        setIsCredentialVerified(false);
-        setInputVoterId("");
-        setInputPasscode("");
-        setTimer(180); // Reset timer to 180s
-        isProcessingAuthRef.current = false;
-        blinkWasDetectedRef.current = false;
-    }).catch(err => {
-        console.error("Failed to verify voting status:", err);
-        alert("System error verifying voting status. Please try again.");
-    });
+    
+    setTargetCandidate(candidate);
+    setIsAuthenticating(true); // Pops up the MFA + Webcam Dialog
+    setIsCredentialVerified(false);
+    setInputVoterId("");
+    setInputPasscode("");
+    setTimer(180); // Reset timer to 180s
+    isProcessingAuthRef.current = false;
+    blinkWasDetectedRef.current = false;
   };
 
   const handleVerifyCredentials = () => {
@@ -228,54 +161,30 @@ export default function ViewElection() {
   const handlePostLivenessAuth = useCallback(async (liveDescriptor) => {
     setScanning(false);
     
-    // Fetch registered descriptor from local storage (set at login)
+    // Fetch registered descriptor from local storage
     const profile = JSON.parse(localStorage.getItem("userProfile"));
     const registeredDescriptorArray = profile.faceDescriptor;
 
-    // 🔒 SECURITY FIX #1: Strictly block if no biometric data is enrolled
-    if (
-      !registeredDescriptorArray ||
-      !Array.isArray(registeredDescriptorArray) ||
-      registeredDescriptorArray.length < 128  // face-api descriptors are always 128 floats
-    ) {
-      alert(
-        "⛔ BIOMETRIC VERIFICATION FAILED\n\n" +
-        "No valid facial biometric profile is enrolled for this account.\n" +
-        "Voting is not permitted without a registered face profile.\n\n" +
-        "Please re-register with a clear profile photo to enroll your biometrics."
-      );
+    if (!registeredDescriptorArray || registeredDescriptorArray.length === 0) {
+      alert("No biometric profile found. Enroll face during registration.");
       setIsAuthenticating(false);
       return;
     }
 
-    // 🔒 SECURITY FIX #2: Strict threshold 0.45 (face-api recommends < 0.4–0.5 for identity)
-    // Previous threshold was 0.6 which was way too lenient — almost any face could pass
-    const STRICT_THRESHOLD = 0.45;
-
-    const distance = faceapi.euclideanDistance(
-      new Float32Array(liveDescriptor),
-      new Float32Array(registeredDescriptorArray)
-    );
-
-    console.log(`[FACE AUTH] Euclidean distance: ${distance.toFixed(4)} | Threshold: ${STRICT_THRESHOLD}`);
+    const distance = faceapi.euclideanDistance(new Float32Array(liveDescriptor), new Float32Array(registeredDescriptorArray));
     
-    if (distance < STRICT_THRESHOLD) {
-      const confidence = ((1 - distance) * 100).toFixed(1);
-      alert(`✅ Identity Verified!\nMatch confidence: ${confidence}%\n\nProceeding with Blockchain Transaction.`);
+    if (distance < 0.6) {
+      alert(`Identity Verified! Match confidence: ${(1 - distance).toFixed(2)}. Proceeding with Blockchain Transaction.`);
       setIsAuthenticating(false);
       
-      const candidateName = targetCandidate ? (targetCandidate.name || targetCandidate) : "";
-      const candidateId = targetCandidate ? (targetCandidate.id || targetCandidate) : "";
+      const user_id = currentAccount;
+      // Extract candidate name correctly whether it's an object or string
+      const candidateName = targetCandidate.name || targetCandidate;
+      const candidateId = targetCandidate.id || targetCandidate;
       
-      const result = await sendTransaction(id, candidateId, profile._id);
+      const result = await sendTransaction(id, candidateId, user_id);
       
       if (result.success) {
-        // Record voter participation (not who they voted for — ballot secrecy preserved)
-        try {
-          await axios.post(serverLink + "user/voted/" + profile._id);
-        } catch (err) {
-          console.error("Could not record vote participation:", err);
-        }
         setReceiptData({
           hash: result.hash,
           voterId: profile.voterId,
@@ -286,13 +195,7 @@ export default function ViewElection() {
         alert(result.mess || "Blockchain Transaction Failed. Please try again.");
       }
     } else {
-      const confidence = ((1 - distance) * 100).toFixed(1);
-      alert(
-        `⛔ IDENTITY REJECTED\n\n` +
-        `Your face does NOT match the registered voter profile.\n` +
-        `Match score: ${confidence}% (minimum 55% required)\n\n` +
-        `If this is you, ensure good lighting and remove glasses/mask.`
-      );
+      alert("IDENTITY REJECTED: Face does not match registered voter.");
       setIsAuthenticating(false);
     }
   }, [currentAccount, id, sendTransaction, targetCandidate]);
@@ -308,57 +211,34 @@ export default function ViewElection() {
       try {
         if (webcamRef.current && webcamRef.current.video && webcamRef.current.video.readyState === 4) {
           const video = webcamRef.current.video;
-          
-          // Use slightly faster detection settings for the loop
           const detections = await faceapi.detectSingleFace(
             video, 
-            new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }) 
+            new faceapi.SsdMobilenetv1Options({ minConfidence: 0.35 })
           ).withFaceLandmarks().withFaceDescriptor();
 
           if (detections) {
-            // 🛡️ LIVENESS HARDENING: Stability Check
-            // A shaken photo or phone screen will have high jitter in the nose position
-            const nose = detections.landmarks.getNose()[3]; // Tip of the nose
-            const dx = Math.abs(nose.x - lastPosRef.current.x);
-            const dy = Math.abs(nose.y - lastPosRef.current.y);
-            lastPosRef.current = { x: nose.x, y: nose.y };
+            const earLeft = calculateEAR(detections.landmarks.getLeftEye());
+            const earRight = calculateEAR(detections.landmarks.getRightEye());
+            const avgEAR = (earLeft + earRight) / 2;
+            setCurrentEAR(avgEAR);
+            console.log("LIVE SCAN EAR:", avgEAR.toFixed(3));
 
-            if (dx > 15 || dy > 15) { // Reset if moving too fast (shaking detected)
-              blinkCounterRef.current = 0;
-              stableFramesRef.current = 0;
-              blinkWasDetectedRef.current = false;
-              setBlinkStatus("Face unstable. Hold still & blink.");
-            } else {
-              stableFramesRef.current++;
-              
-              const earLeft = calculateEAR(detections.landmarks.getLeftEye());
-              const earRight = calculateEAR(detections.landmarks.getRightEye());
-              const avgEAR = (earLeft + earRight) / 2;
-              setCurrentEAR(avgEAR);
-
-              // 🛡️ LIVENESS HARDENING: Sustained Blink Check
-              // Require eyes to be closed for at least 2 frames and open for 2 frames
-              if (avgEAR < 0.22) { // Closed threshold
-                blinkCounterRef.current++;
-                if (blinkCounterRef.current >= 2) {
-                  blinkWasDetectedRef.current = true;
-                  setHasBlinked(true);
-                  setBlinkStatus("Blink held. Now open your eyes...");
-                }
-              } else if (avgEAR > 0.28) { // Open threshold
-                if (blinkWasDetectedRef.current && stableFramesRef.current > 5) {
-                   // Success: Blink detected + Face was stable
-                   isProcessingAuthRef.current = true;
-                   handlePostLivenessAuth(detections.descriptor);
-                } else {
-                   blinkCounterRef.current = 0;
-                   setBlinkStatus("Please BLINK clearly...");
-                }
+            if (avgEAR > 0.05) {
+              if (avgEAR < 0.25) {
+                blinkWasDetectedRef.current = true;
+                setHasBlinked(true); // Still update state for UI bar
+                setBlinkStatus("Blink detected! Now open your eyes...");
+              } else if (blinkWasDetectedRef.current && avgEAR > 0.27) {
+                isProcessingAuthRef.current = true;
+                handlePostLivenessAuth(detections.descriptor);
+              } else if (!blinkWasDetectedRef.current) {
+                setBlinkStatus("Please BLINK to verify identity...");
               }
+            } else {
+              setBlinkStatus("Please look directly at the camera.");
             }
           } else {
-            setBlinkStatus("Face not centered.");
-            stableFramesRef.current = 0;
+            setBlinkStatus("No face detected. Please center your face.");
           }
         }
       } catch (err) {
@@ -366,10 +246,7 @@ export default function ViewElection() {
       }
 
       if (isActive && !isProcessingAuthRef.current) {
-        // Use requestAnimationFrame for smoother UI and better CPU usage
-        requestAnimationFrame(() => {
-          setTimeout(runScanner, 80); // 80ms gap for ~12 FPS (Perfect for web biometric)
-        });
+        timeoutId = setTimeout(runScanner, 10); // Super fast 10ms gap
       }
     };
 
@@ -413,17 +290,6 @@ export default function ViewElection() {
     return () => clearInterval(countdown);
   }, [isAuthenticating, isCredentialVerified, timer]);
 
-  const [hasAlreadyVoted, setHasAlreadyVoted] = useState(false);
-
-  useEffect(() => {
-    const profile = JSON.parse(localStorage.getItem("userProfile") || "{}");
-    if (profile._id) {
-       axios.get(serverLink + `user/${profile._id}`).then(res => {
-         if (res.data && res.data.hasVoted) setHasAlreadyVoted(true);
-       });
-    }
-  }, []);
-
   return (
     <div style={{ padding: "40px" }}>
       <Typography variant="h4">Election Dashboard</Typography>
@@ -454,50 +320,66 @@ export default function ViewElection() {
       </Typography>
 
       <Grid container spacing={4} style={{ marginTop: "10px" }}>
-        {candidates.map((cand, index) => {
-          const detail = allCandidatesDetails.find(d => d.username === cand) || {};
-          return (
-            <Grid item key={index} xs={12} sm={4} display="flex" flexDirection="column" alignItems="center">
-              <Box 
-                mb={2} 
-                style={{ 
-                  width: 140, 
-                  height: 140, 
-                  borderRadius: "50%", 
-                  overflow: "hidden", 
-                  border: "5px solid #1976d2", 
-                  display: "flex", 
-                  justifyContent: "center", 
-                  alignItems: "center", 
-                  background: "#eee",
-                  boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+        {candidates.map((cand, index) => (
+          <Grid item key={index} xs={12} sm={6} md={4}>
+            <Card sx={{ 
+              height: '100%', 
+              display: 'flex', 
+              flexDirection: 'column',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+              transition: 'transform 0.2s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-8px)',
+                boxShadow: '0 12px 32px rgba(0,0,0,0.2)'
+              }
+            }}>
+              <CardMedia
+                component="img"
+                height="240"
+                image={facesLink + (cand.username || cand) + ".png"}
+                alt={cand.username || cand}
+                sx={{ 
+                  objectFit: 'cover',
+                  borderBottom: '1px solid #eee'
                 }}
-              >
-                {detail.profileImage ? (
-                  <img 
-                    src={`${serverLink.replace('/api/auth/', '')}/Faces/${detail.profileImage}`} 
-                    alt={cand} 
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }} 
-                  />
-                ) : (
-                  <Typography variant="h2" color="textSecondary" style={{ fontWeight: "bold" }}>
-                    {cand.charAt(0).toUpperCase()}
-                  </Typography>
-                )}
-              </Box>
-              <Button
-                variant="contained"
-                size="large"
-                color={(!isElectionActive || hasAlreadyVoted) ? "secondary" : "primary"}
-                disabled={!isElectionActive || hasAlreadyVoted}
-                onClick={() => handleVoteClick(cand)}
-                style={{ minWidth: "140px", fontWeight: "bold" }}
-              >
-                {cand.toUpperCase()}
-              </Button>
-            </Grid>
-          );
-        })}
+                onError={(e) => {
+                  e.target.onerror = null; 
+                  e.target.src = "https://via.placeholder.com/240x240?text=CANDIDATE";
+                }}
+              />
+              <CardContent sx={{ flexGrow: 1, textAlign: 'center', p: 3 }}>
+                <Typography gutterBottom variant="h5" component="div" sx={{ fontWeight: 'bold', color: '#1a237e' }}>
+                  {(cand.username || cand).toUpperCase()}
+                </Typography>
+                <Typography variant="body2" color="success.main" sx={{ fontWeight: '500' }}>
+                  NOMINATED CANDIDATE
+                </Typography>
+              </CardContent>
+              <CardActions sx={{ justifyContent: 'center', pb: 3, px: 3 }}>
+                <Button 
+                  fullWidth
+                  variant="contained" 
+                  size="large"
+                  sx={{ 
+                    borderRadius: '8px',
+                    py: 1.5,
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)'
+                  }}
+                  color={(!isElectionActive || hasAlreadyVoted) ? "secondary" : "primary"}
+                  disabled={!isElectionActive || hasAlreadyVoted}
+                  onClick={() => handleVoteClick(cand)}
+                >
+                  Cast Your Vote
+                </Button>
+              </CardActions>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
 
       {/* BIOMETRIC AUTHENTICATION MODAL */}

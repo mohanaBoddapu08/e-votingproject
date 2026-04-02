@@ -20,15 +20,7 @@ const AddUser = () => {
     const email = e.target.email.value;
     const mobile = e.target.mobile.value;
     const password = e.target.password.value;
-    const voterId = e.target.voterId.value; // Required by DB
-    const location = locationData.country_name || "Unknown";
-    
-    // Add User must include Voter ID
-    if (!voterId) {
-      alert("Voter ID is strictly required by the system.");
-      return;
-    }
-
+    const location = locationData.country_name;
     const profile = e.target.profile.files[0];
     const sendData = new FormData();
     sendData.append("username", username);
@@ -37,7 +29,6 @@ const AddUser = () => {
     sendData.append("email", email);
     sendData.append("mobile", mobile);
     sendData.append("password", password);
-    sendData.append("voterId", voterId);
     sendData.append("location", location);
     sendData.append("profile", profile);
     sendData.append("avatar", username + "." + profile.name.split(".").pop());
@@ -47,12 +38,8 @@ const AddUser = () => {
     axios.post(serverLink + "register", sendData).then((res) => {
       console.log(res.status);
       if (res.status === 201) {
-        alert("User successfully created! Note: User must update biometric face scan to be able to vote.");
         navigate("/admin/user");
       }
-    }).catch(err => {
-      console.error(err);
-      alert("Failed to create user. Ensure username, email, and Voter ID are unique.");
     });
   };
 
@@ -104,11 +91,8 @@ const AddUser = () => {
                 <Grid item xs={12} sm={12}>
                   <InputField label="E-mail" name="email" fullWidth={true} />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={12}>
                   <InputField label="Mobile" name="mobile" fullWidth={true} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <InputField label="Voter ID" name="voterId" fullWidth={true} />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <InputField

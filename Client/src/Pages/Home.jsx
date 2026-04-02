@@ -49,22 +49,22 @@ export default function Home() {
                 <Typography variant="h5" color="textSecondary" mb={4}>
                   Hello, {user.fname || user.username}! Cast your choice for a better future.
                 </Typography>
-                <div style={{ padding: '40px', background: '#e3f2fd', borderRadius: '20px', border: '2px dashed #1976d2' }}>
-                  <Typography variant="h6" color="primary">Blockchain-Protected Voting Environment</Typography>
-                  <Typography variant="body1">Your identity is verified and your vote is anonymous.</Typography>
-                </div>
+                <img
+                  style={{ width: "80%", borderRadius: "12px", boxShadow: "0 8px 30px rgba(0,0,0,0.15)" }}
+                  src="/Assets/welcome.png"
+                  alt="Welcome Voter"
+                />
               </>
             ) : (
               <>
                 <Typography variant="h2" component="h1" gutterBottom fontWeight="bold" sx={{ color: '#1a237e', mb: 4 }}>
-                  Digital Voting Portal
+                  Welcome to Digital Voting Portal
                 </Typography>
-                <Typography variant="h5" color="textSecondary" mb={5}>
-                    A secure, transparent, and decentralized way to vote.
-                </Typography>
-                <div style={{ padding: '40px', background: '#f5f5f5', borderRadius: '20px', border: '1px solid #ddd' }}>
-                  <Typography variant="h6" color="textSecondary">Sign in to start participating in active elections.</Typography>
-                </div>
+                <img
+                  style={{ width: "85%", borderRadius: "16px", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}
+                  src="/Assets/landing.png"
+                  alt="Digital Voting Portal"
+                />
               </>
             )}
           </Box>
